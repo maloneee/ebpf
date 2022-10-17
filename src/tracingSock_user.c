@@ -26,10 +26,9 @@ void bump_memlock_rlimit(void)
 
 struct info
 {
-    char comm[TASK_COMM_LEN];
-    __u32 pid;
-    __u32 uid;
-	const void *skaddr;
+	char comm[TASK_COMM_LEN];
+	__u32 pid;
+	__u32 uid;
 	int oldstate;
 	int newstate;
 	__u16 sport;
@@ -42,16 +41,18 @@ struct info
 	__u8 daddr_v6[16];
 };
 
-char * getSK_state(int stat,__u16 protocol){
-	char state[] = "";   
-	if(!(protocol ^ (__u16)6)){
-		memcpy(state, tcp_state[stat], sizeof(tcp_state[stat]));
+char *get_sk_addr4(__u8 addr[4])
+{
+	char ip4[16];
+	int off = 0;
+	for (int i = 0; i < 4; i++)
+	{
+		sprintf(ip4 + off, "%d", addr[i]); //每个数组元素循环转化为字符串
 	}
-	return state;
+	return ip4;
 }
 
 static volatile bool exiting = false;
-
 
 static void sig_handler(int sig)
 {
@@ -64,25 +65,50 @@ int handle_event(void *ctx, void *data, size_t data_sz)
 	struct tm *tm;
 	char ts[32];
 	time_t t;
-    char str6[INET6_ADDRSTRLEN];
-    char str4[INET_ADDRSTRLEN];
-    char sport[6]={0};
-    char dport[6]={0};
-    snprintf(sport ,6, "%d", i->sport);
-    snprintf(dport ,6, "%d", i->dport);
-    char state[30];
-	strcpy(state,strcat(strcat(getSK_state(i->newstate,i->protocol)," --> "),getSK_state(i->oldstate,i->protocol)));
 	time(&t);
 	tm = localtime(&t);
+
 	strftime(ts, sizeof(ts), "%H:%M:%S", tm);
-	printf("%s %s %s %u %u %u %u %d %d\n",i->comm,i->daddr,i->saddr,i->dport,i->sport,i->protocol,i->family,i->newstate,i->oldstate) ;
-   // i->family == 10 ? strcat(strcat(inet_ntop(AF_INET6, i->saddr_v6, str6, INET6_ADDRSTRLEN),":"),sport) : "UNKNOWN" );
-	/*printf("%-11s %-5d %-5d %-7s %-7s %-16s %-16s %s \n", ts,i->pid, i->uid, i->comm, i->protocol == 6 ? "TCP" : i->protocol == 17 ? "UDP" : "OTHERS", 
-    i->family == 2 ? strcat(strcat(inet_ntop(AF_INET, i->saddr, str4, INET_ADDRSTRLEN),":"),sport) : 
-    i->family == 10 ? strcat(strcat(inet_ntop(AF_INET6, i->saddr_v6, str6, INET6_ADDRSTRLEN),":"),sport) : "UNKNOWN",
-    i->family == 2 ? strcat(strcat(inet_ntop(AF_INET, i->daddr, str4, INET_ADDRSTRLEN),":"),dport) : 
-    i->family == 10 ? strcat(strcat(inet_ntop(AF_INET6, i->daddr_v6, str6, INET6_ADDRSTRLEN),":"),dport) : "UNKNOWN",
-    state );*/
+	if (i->family == 2)
+	{
+		char src4[21];
+		int offset = 0;
+		for (int n = 0; n < 4; n++)
+		{
+			offset += sprintf(src4 + offset, "%d.", i->saddr[n]);
+		}
+		sprintf(src4 + offset - 1, ":%d", i->sport);
+		char dst4[21];
+		offset = 0;
+		for (int n = 0; n < 4; n++)
+		{
+			offset += sprintf(dst4 + offset, "%d.", i->daddr[n]);
+		}
+		sprintf(dst4 + offset - 1, ":%d", i->dport);
+		printf("%-9s %-16s %-6d    %-5d    %-4s          %-30s %-30s %s%s%s\n", ts, i->comm, i->pid, i->uid, i->protocol == 6 ? "TCP" : "UDP",
+			   src4, dst4, i->protocol == 6 ?tcp_state[i->oldstate]:"", i->protocol == 6 ? "-->" : "", i->protocol == 6 ?tcp_state[i->newstate]:"");
+	}
+	else
+	{
+		char src6[30];
+		int offset = 0;
+		src6[0] = '[';
+		for (int n = 0; n < 16; n++)
+		{
+			offset += sprintf(src6 + offset, "%x:", i->saddr_v6[n]);
+		}
+		sprintf(src6 + offset - 1, ":%d]", i->sport);
+		char dst6[30];
+		offset = 0;
+		dst6[0] = '[';
+		for (int n = 0; n < 16; n++)
+		{
+			offset += sprintf(dst6 + offset, "%x:", i->daddr_v6[n]);
+		}
+		sprintf(dst6 + offset - 1, ":%d]", i->dport);
+		printf("%-9s %-16s %-6d    %-5d    %-4s          %-30s %-30s %s%s%s\n", ts, i->comm, i->pid, i->uid,i->protocol == 6 ? "TCP" : "UDP", src6, dst6,
+			   i->protocol == 6 ?tcp_state[i->oldstate]:"", i->protocol == 6 ? "-->" : "", i->protocol == 6 ?tcp_state[i->newstate]:"");
+	}
 
 	return 0;
 }
@@ -144,8 +170,8 @@ int main(int argc, char **argv)
 	/* create ring buffer */
 	rb = ring_buffer__new(map_fd, handle_event, NULL, NULL);
 
-    	/* Process events */
-	printf("%-11s %-5s %-5s %-7s %-5s %-16s %-16s %s\n", "TIME", "PID", "UID", "COMM","PROTOCOL","SRC","DST","STATE");
+	/* Process events */
+	printf("  %s    %s              %s      %s   %s         %s                              %s                              %s\n", "TIME", "COMM","PID", "UID", "PROTOCOL", "SRC", "DST","STATE");
 	while (!exiting)
 	{
 		err = ring_buffer__poll(rb, 100 /* timeout, ms */);
@@ -168,4 +194,3 @@ cleanup:
 	bpf_object__close(obj);
 	return err < 0 ? -err : 0;
 }
-
