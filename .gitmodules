@@ -1,3 +1,11 @@
 [submodule "tools/libbpf"]
 	path = tools/libbpf
 	url = https://github.com/libbpf/libbpf.git
+
+[submodule "lib/btfhub"]
+	path = lib/btfhub
+	url = https://github.com/aquasecurity/btfhub-archive.git
+
+[submodule "tools/btfhub"]
+	path = tools/btfhub
+	url = https://github.com/aquasecurity/btfhub.git
