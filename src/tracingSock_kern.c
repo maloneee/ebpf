@@ -41,7 +41,7 @@ int set_sock_state(struct trace_event_raw_inet_sock_set_state *ctx)
     bpf_core_read(i->saddr, sizeof(i->saddr), &ctx->saddr);
     bpf_core_read(i->daddr, sizeof(i->daddr), &ctx->daddr);
     bpf_core_read(i->saddr_v6, sizeof(i->saddr_v6), &ctx->saddr_v6);
-    bpf_core_read(&i->daddr_v6, sizeof(i->daddr_v6), &ctx->daddr_v6);
+    bpf_core_read(i->daddr_v6, sizeof(i->daddr_v6), &ctx->daddr_v6);
     bpf_core_read(&i->sport, sizeof(i->sport), &ctx->sport);
     i->dport = ctx->dport;
     bpf_core_read(&i->family, sizeof(i->family), &ctx->family);
