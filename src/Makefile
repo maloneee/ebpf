@@ -12,7 +12,7 @@ CFLAGS := -g  -O2
 
 
 
-tprogs := tracingProcess  tracingChmod tracingProcessV2 tracingSock tracingUDP tracingUDP2
+tprogs := tracingProcess  tracingChmod tracingProcessV2 tracingSock tracingUDP tracingUDP2 tracingUDP3
 
 ifeq ($(V),1)
 	Q =
